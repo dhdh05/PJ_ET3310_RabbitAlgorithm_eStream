@@ -15,5 +15,13 @@ vector<unsigned int> encrypt(const vector<unsigned int>& plain_text, bool do_iv_
     int n = plain_text.size();
     vector<unsigned int> cipher_text(n);
     
+    for(int i = 0; i < n; i += 8){
+        next_state();
+        for(int j = 0; j < 8 && i < n; j+=2, i++){
+            cipher_text[i] = plain_text[i] ^ X[j] ^ (X[(j + 5) % 8] >> 16) ^ (X[(j + 3) % 8] << 16);
+
+        }
+    }
+
     return cipher_text;
 } 
