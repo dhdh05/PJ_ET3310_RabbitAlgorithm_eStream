@@ -22,14 +22,14 @@ int main() {
         if(sub_key[i] != sub_key_check[i]) error_counter++;
     }
 
-     uint32_t X_check[8] = {
-        0x38CF1FC2, 0x89A9B0CC, 0xE85ECD81, 0x1FC2F80D,
-        0xB0CC8A62, 0xCD8138CF, 0xF80D89A9, 0x8A62E85E
+    uint32_t X_check[8] = {
+        0x328404BB, 0x6DBFFDB6, 0xC59434D3, 0x1A442F64,
+        0x9D0EE3E6, 0xE9D6B223, 0x80198946, 0x2D428548
     };
 
     uint32_t C_check[8] = {
-        0x8A62B0CC, 0x38CFCD81, 0x89A9F80D, 0xE85E8A62,
-        0x1FC238CF, 0xB0CC89A9, 0xCD81E85E, 0xF80D1FC2
+        0x223B1DE5, 0x6FD212ED, 0xDCEEA5A6, 0x307352DF,
+        0x5E7308A6, 0xE9A643CA, 0xC7C10140, 0x5F05DC74
     };
 
     
