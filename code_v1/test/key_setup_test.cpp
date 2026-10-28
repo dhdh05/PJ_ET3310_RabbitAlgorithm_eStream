@@ -8,13 +8,12 @@ int main() {
         0x62, 0x8A, 0xCC, 0xB0, 0xA9, 0x89, 0x0D, 0xF8
     }; //Appendix B.
     uint16_t sub_key[8];
-
     uint16_t sub_key_check[8] = {
         0x1FC2, 0x38CF, 0xCD81, 0xE85E,
         0x8A62, 0xB0CC, 0x89A9, 0xF80D
     };
-
     split_key(key, sub_key);
+    key_setup(key);
 
     int error_counter = 0;
     for(int i = 0; i < 8; i++) {
@@ -33,8 +32,7 @@ int main() {
         0x1FC238CF, 0xB0CC89A9, 0xCD81E85E, 0xF80D1FC2
     };
 
-    init();
-    init_key_state(sub_key);
+    
 
     for(int i = 0; i < 8; i++) {
         std::cout << "X[" << i << "] = " << std::hex << X[i] << ", mong doi = " << X_check[i] << "\n";
