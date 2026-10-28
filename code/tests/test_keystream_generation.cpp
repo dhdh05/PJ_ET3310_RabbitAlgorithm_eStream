@@ -58,14 +58,25 @@ bool test_same_secretKey() {
 }
 
 int main() {
+    
+    int error_counter = 0;
     if(test_khoi_lien_tiep()) {
         std::cout << "2 khoi keystream lien tiep da khac nhau !\n";
     }
-    else std::cout << "Not ok! 2 khoi keystream lien tiep giong nhau!\n";
+    else {
+        std::cout << "Not ok! 2 khoi keystream lien tiep giong nhau!\n";
+        error_counter++;
+    }
 
     if(test_same_secretKey()) {
         std::cout << "Cung sesret-key da sinh giong nhau 5 khoi! OK\n";
 
     }
-    else std::cout << "Cung secret-key ma sinh khac nhau! Not ok !\n";
+    else {
+        std::cout << "Cung secret-key ma sinh khac nhau! Not ok !\n";
+        error_counter++;
+    }
+
+    if(error_counter > 1) return 1;
+    return 0;
 }
