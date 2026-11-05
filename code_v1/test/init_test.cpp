@@ -16,7 +16,7 @@ int main() {
     }
 
     for (int i = 0; i < 8; ++i) {
-        cout << "A [" << i << "] =" << hex << A[i] << ", C [" << i << "] = " << hex << C[i] << ", X [" << i << "] = " << hex << X[i] << endl;
+        //cout << "A [" << i << "] =" << hex << A[i] << ", C [" << i << "] = " << hex << C[i] << ", X [" << i << "] = " << hex << X[i] << endl;
     }
 
     init();

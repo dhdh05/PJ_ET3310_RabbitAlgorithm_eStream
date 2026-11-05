@@ -5,6 +5,7 @@
 #include <cstdint>
 #include "rotate_left.h"
 #include "counter.h"
+#include "init.h"
 
 // Cap nhat trang thai Rabbit
 inline void next_state() {
