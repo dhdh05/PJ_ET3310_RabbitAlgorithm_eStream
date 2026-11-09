@@ -1,8 +1,9 @@
 #pragma once
-#include "rabbit.h"
-extern unsigned int A[8];
-extern unsigned int C[8];
-extern unsigned int X[8];
-
+#include <cstdint>
+#include <iostream>
+extern uint32_t A[8];
+extern uint32_t C[8];
+extern uint32_t X[8];
+extern uint32_t carry;
 
 void init();
