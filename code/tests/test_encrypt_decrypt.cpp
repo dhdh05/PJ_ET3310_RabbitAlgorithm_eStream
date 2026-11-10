@@ -1,6 +1,8 @@
 #include "rabbit.h"
 #include "utils.h"
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -44,11 +46,38 @@ static void testString() {
     check("chuoi: ban ma khac ban ro", cipher != plain);
 }
 
+// Test 2: 1MB du lieu ngau nhien ma hoa roi giai ma phai ra dung ban goc.
+static void testLargeData() {
+    const size_t n = 1024 * 1024;
+    std::vector<uint8_t> plain(n);
+    std::srand(12345);
+    for (size_t i = 0; i < n; i++) {
+        plain[i] = static_cast<uint8_t>(std::rand() & 0xFF);
+    }
+
+    std::vector<uint8_t> cipher(n);
+    std::vector<uint8_t> decrypted(n);
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), n);
+
+    RabbitCipher dec;
+    dec.setupKey(KEY);
+    dec.setupIV(IV);
+    dec.process(cipher.data(), decrypted.data(), n);
+
+    check("1MB: giai ma ra dung ban goc", decrypted == plain);
+    check("1MB: ban ma khac ban ro", cipher != plain);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
 
     testString();
+    testLargeData();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
