@@ -72,12 +72,45 @@ static void testLargeData() {
     check("1MB: ban ma khac ban ro", cipher != plain);
 }
 
+// Test 3: du lieu rong (length = 0) khong duoc gay loi va khong thay doi gi.
+static void testEmptyData() {
+    std::vector<uint8_t> buf;
+    RabbitCipher cipher;
+    cipher.setupKey(KEY);
+    cipher.setupIV(IV);
+    cipher.process(buf.data(), buf.data(), 0);
+    check("rong: xu ly length=0 khong loi, khong doi gi", buf.empty());
+}
+
+// Test 4: ma hoa tai cho (input va output cung mang) phai cho ket qua giong
+// ma hoa sang mang khac, voi cung khoa/IV.
+static void testInPlace() {
+    const std::string text = "Du lieu dung de kiem tra ma hoa tai cho, dai hon mot khoi 16 byte.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+
+    std::vector<uint8_t> cipherSeparate(plain.size());
+    RabbitCipher encA;
+    encA.setupKey(KEY);
+    encA.setupIV(IV);
+    encA.process(plain.data(), cipherSeparate.data(), plain.size());
+
+    std::vector<uint8_t> buf = plain;
+    RabbitCipher encB;
+    encB.setupKey(KEY);
+    encB.setupIV(IV);
+    encB.process(buf.data(), buf.data(), buf.size());
+
+    check("tai cho: giong ma hoa sang mang khac", buf == cipherSeparate);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
 
     testString();
     testLargeData();
+    testEmptyData();
+    testInPlace();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
