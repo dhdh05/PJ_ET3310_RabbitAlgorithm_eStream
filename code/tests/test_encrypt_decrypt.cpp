@@ -161,6 +161,42 @@ static void testZeroPlaintextIsKeystream() {
     check("ban ro toan 0: ban ma = keystream (RFC A.2.2)", match);
 }
 
+// Test 7: giai ma voi sai khoa hoac sai IV phai cho ket qua khac ban ro goc.
+static void testWrongKeyOrIV() {
+    const std::string text = "Kiem tra giai ma voi khoa hoac IV sai.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    std::vector<uint8_t> cipher(plain.size());
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), plain.size());
+
+    // Sai khoa: doi 1 byte cua KEY, giu IV dung.
+    uint8_t wrongKey[16];
+    std::copy(KEY, KEY + 16, wrongKey);
+    wrongKey[0] ^= 0x01;
+
+    std::vector<uint8_t> decWrongKey(plain.size());
+    RabbitCipher decA;
+    decA.setupKey(wrongKey);
+    decA.setupIV(IV);
+    decA.process(cipher.data(), decWrongKey.data(), cipher.size());
+    check("sai khoa: ket qua khac ban ro", decWrongKey != plain);
+
+    // Sai IV: doi 1 byte cua IV, giu khoa dung.
+    uint8_t wrongIV[8];
+    std::copy(IV, IV + 8, wrongIV);
+    wrongIV[0] ^= 0x01;
+
+    std::vector<uint8_t> decWrongIV(plain.size());
+    RabbitCipher decB;
+    decB.setupKey(KEY);
+    decB.setupIV(wrongIV);
+    decB.process(cipher.data(), decWrongIV.data(), cipher.size());
+    check("sai IV: ket qua khac ban ro", decWrongIV != plain);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
@@ -171,6 +207,7 @@ int main() {
     testInPlace();
     testChunked();
     testZeroPlaintextIsKeystream();
+    testWrongKeyOrIV();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
