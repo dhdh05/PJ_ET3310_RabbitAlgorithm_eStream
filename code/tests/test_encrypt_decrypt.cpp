@@ -1,0 +1,254 @@
+#include "rabbit.h"
+#include "utils.h"
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <vector>
+
+// So test da chay va so test that bai, dung chung cho moi ham test.
+static int totalTests = 0;
+static int failedTests = 0;
+
+// In PASS/FAIL cho mot truong hop kiem tra.
+static void check(const std::string& name, bool ok) {
+    totalTests++;
+    if (!ok) failedTests++;
+    std::cout << "  " << name << ": " << (ok ? "[PASS]" : "[FAIL]") << "\n";
+}
+
+// Khoa va IV co dinh dung chung cho cac test.
+static const uint8_t KEY[16] = {
+    0x00,0x11,0x22,0x33,0x44,0x55,0x66,0x77,
+    0x88,0x99,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF
+};
+static const uint8_t IV[8] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08};
+
+// Test 1: ma hoa chuoi roi giai ma bang doi tuong moi phai ra lai chuoi goc.
+static void testString() {
+    const std::string text = "Xin chao ET3310!";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    std::vector<uint8_t> cipher(plain.size());
+    std::vector<uint8_t> decrypted(plain.size());
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), plain.size());
+
+    RabbitCipher dec;
+    dec.setupKey(KEY);
+    dec.setupIV(IV);
+    dec.process(cipher.data(), decrypted.data(), cipher.size());
+
+    check("chuoi: giai ma ra lai ban goc", decrypted == plain);
+    check("chuoi: ban ma khac ban ro", cipher != plain);
+}
+
+// Test 2: 1MB du lieu ngau nhien ma hoa roi giai ma phai ra dung ban goc.
+static void testLargeData() {
+    const size_t n = 1024 * 1024;
+    std::vector<uint8_t> plain(n);
+    std::srand(12345);
+    for (size_t i = 0; i < n; i++) {
+        plain[i] = static_cast<uint8_t>(std::rand() & 0xFF);
+    }
+
+    std::vector<uint8_t> cipher(n);
+    std::vector<uint8_t> decrypted(n);
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), n);
+
+    RabbitCipher dec;
+    dec.setupKey(KEY);
+    dec.setupIV(IV);
+    dec.process(cipher.data(), decrypted.data(), n);
+
+    check("1MB: giai ma ra dung ban goc", decrypted == plain);
+    check("1MB: ban ma khac ban ro", cipher != plain);
+}
+
+// Test 3: du lieu rong (length = 0) khong duoc gay loi va khong thay doi gi.
+static void testEmptyData() {
+    std::vector<uint8_t> buf;
+    RabbitCipher cipher;
+    cipher.setupKey(KEY);
+    cipher.setupIV(IV);
+    cipher.process(buf.data(), buf.data(), 0);
+    check("rong: xu ly length=0 khong loi, khong doi gi", buf.empty());
+}
+
+// Test 4: ma hoa tai cho (input va output cung mang) phai cho ket qua giong
+// ma hoa sang mang khac, voi cung khoa/IV.
+static void testInPlace() {
+    const std::string text = "Du lieu dung de kiem tra ma hoa tai cho, dai hon mot khoi 16 byte.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+
+    std::vector<uint8_t> cipherSeparate(plain.size());
+    RabbitCipher encA;
+    encA.setupKey(KEY);
+    encA.setupIV(IV);
+    encA.process(plain.data(), cipherSeparate.data(), plain.size());
+
+    std::vector<uint8_t> buf = plain;
+    RabbitCipher encB;
+    encB.setupKey(KEY);
+    encB.setupIV(IV);
+    encB.process(buf.data(), buf.data(), buf.size());
+
+    check("tai cho: giong ma hoa sang mang khac", buf == cipherSeparate);
+}
+
+// Test 5: chia nho du lieu thanh nhieu lan goi process() lien tiep phai cho
+// cung ket qua nhu goi process() mot lan, vi trang thai duoc giu giua cac lan goi.
+static void testChunked() {
+    const size_t n = 1000;
+    std::vector<uint8_t> plain(n);
+    std::srand(777);
+    for (size_t i = 0; i < n; i++) {
+        plain[i] = static_cast<uint8_t>(std::rand() & 0xFF);
+    }
+
+    std::vector<uint8_t> cipherWhole(n);
+    RabbitCipher encWhole;
+    encWhole.setupKey(KEY);
+    encWhole.setupIV(IV);
+    encWhole.process(plain.data(), cipherWhole.data(), n);
+
+    std::vector<uint8_t> cipherChunked(n);
+    RabbitCipher encChunked;
+    encChunked.setupKey(KEY);
+    encChunked.setupIV(IV);
+
+    const size_t chunkSizes[] = {1, 7, 15, 16, 17, 100};
+    size_t offset = 0;
+    for (size_t sz : chunkSizes) {
+        encChunked.process(plain.data() + offset, cipherChunked.data() + offset, sz);
+        offset += sz;
+    }
+    // Phan con lai.
+    encChunked.process(plain.data() + offset, cipherChunked.data() + offset, n - offset);
+
+    check("chia nho: giong ma hoa mot lan", cipherChunked == cipherWhole);
+}
+
+// Test 6: ban ro toan 0 thi ban ma chinh la keystream (vi C = P XOR S, P = 0 => C = S).
+// Test vector RFC 4503 Phu luc A.2.2 (giong trong test_vectors.cpp): khoa toan 0,
+// IV = C3 73 F5 75 C1 26 7E 59, 3 khoi keystream dau tien S[0], S[1], S[2].
+static void testZeroPlaintextIsKeystream() {
+    const uint8_t key[16] = {0};
+    const uint8_t iv[8] = {0xC3, 0x73, 0xF5, 0x75, 0xC1, 0x26, 0x7E, 0x59};
+
+    const uint8_t expected[48] = {
+        0x1F, 0xCD, 0x4E, 0xB9, 0x58, 0x00, 0x12, 0xE2, 0xE0, 0xDC, 0xCC, 0x92, 0x22, 0x01, 0x7D, 0x6D,
+        0xA7, 0x5F, 0x4E, 0x10, 0xD1, 0x21, 0x25, 0x01, 0x7B, 0x24, 0x99, 0xFF, 0xED, 0x93, 0x6F, 0x2E,
+        0xEB, 0xC1, 0x12, 0xC3, 0x93, 0xE7, 0x38, 0x39, 0x23, 0x56, 0xBD, 0xD0, 0x12, 0x02, 0x9B, 0xA7
+    };
+
+    std::vector<uint8_t> plain(48, 0x00);
+    std::vector<uint8_t> cipher(48);
+
+    RabbitCipher cipherObj;
+    cipherObj.setupKey(key);
+    cipherObj.setupIV(iv);
+    cipherObj.process(plain.data(), cipher.data(), plain.size());
+
+    bool match = std::equal(cipher.begin(), cipher.end(), expected);
+    check("ban ro toan 0: ban ma = keystream (RFC A.2.2)", match);
+}
+
+// Test 7: giai ma voi sai khoa hoac sai IV phai cho ket qua khac ban ro goc.
+static void testWrongKeyOrIV() {
+    const std::string text = "Kiem tra giai ma voi khoa hoac IV sai.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    std::vector<uint8_t> cipher(plain.size());
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), plain.size());
+
+    // Sai khoa: doi 1 byte cua KEY, giu IV dung.
+    uint8_t wrongKey[16];
+    std::copy(KEY, KEY + 16, wrongKey);
+    wrongKey[0] ^= 0x01;
+
+    std::vector<uint8_t> decWrongKey(plain.size());
+    RabbitCipher decA;
+    decA.setupKey(wrongKey);
+    decA.setupIV(IV);
+    decA.process(cipher.data(), decWrongKey.data(), cipher.size());
+    check("sai khoa: ket qua khac ban ro", decWrongKey != plain);
+
+    // Sai IV: doi 1 byte cua IV, giu khoa dung.
+    uint8_t wrongIV[8];
+    std::copy(IV, IV + 8, wrongIV);
+    wrongIV[0] ^= 0x01;
+
+    std::vector<uint8_t> decWrongIV(plain.size());
+    RabbitCipher decB;
+    decB.setupKey(KEY);
+    decB.setupIV(wrongIV);
+    decB.process(cipher.data(), decWrongIV.data(), cipher.size());
+    check("sai IV: ket qua khac ban ro", decWrongIV != plain);
+}
+
+// Test 8: dao 1 bit cua ban ma roi giai ma dung khoa/IV thi dung 1 bit tuong
+// ung (cung vi tri) cua ban ro bi dao, cac bit khac giu nguyen. Ma dong XOR
+// tung bit voi keystream mot cach doc lap voi cac bit khac, nen sua 1 bit cua
+// ban ma chi lam doi dung bit do cua ban ro giai ma ra, ma khong lam loi hay bi
+// phat hien - ke tan cong co the sua ban ma theo y muon ma khong can biet khoa.
+// Vi vay mat ma dong khong tu bao ve duoc tinh toan ven, can them MAC (vd HMAC)
+// kem theo de nguoi nhan phat hien duoc du lieu da bi sua.
+static void testBitFlip() {
+    const std::string text = "Kiem tra dao 1 bit cua ban ma anh huong the nao den ban ro.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    std::vector<uint8_t> cipher(plain.size());
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), plain.size());
+
+    const size_t flipByte = plain.size() / 2;
+    const int flipBit = 3;
+    std::vector<uint8_t> tampered = cipher;
+    tampered[flipByte] ^= static_cast<uint8_t>(1 << flipBit);
+
+    std::vector<uint8_t> decrypted(plain.size());
+    RabbitCipher dec;
+    dec.setupKey(KEY);
+    dec.setupIV(IV);
+    dec.process(tampered.data(), decrypted.data(), tampered.size());
+
+    int diffCount = 0;
+    bool onlyExpectedBitDiffers = true;
+    for (size_t i = 0; i < plain.size(); i++) {
+        uint8_t diff = decrypted[i] ^ plain[i];
+        if (diff != 0) diffCount++;
+        uint8_t expectedDiff = (i == flipByte) ? static_cast<uint8_t>(1 << flipBit) : 0;
+        if (diff != expectedDiff) onlyExpectedBitDiffers = false;
+    }
+    check("dao bit: chi dung 1 bit tuong ung cua ban ro bi doi", diffCount == 1 && onlyExpectedBitDiffers);
+}
+
+
+int main() {
+    std::cout << "=== TEST MA HOA / GIAI MA ===\n";
+
+    testString();
+    testLargeData();
+    testEmptyData();
+    testInPlace();
+    testChunked();
+    testZeroPlaintextIsKeystream();
+    testWrongKeyOrIV();
+    testBitFlip();
+
+    std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
+    return failedTests == 0 ? 0 : 1;
+}
