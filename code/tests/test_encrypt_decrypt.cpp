@@ -197,6 +197,45 @@ static void testWrongKeyOrIV() {
     check("sai IV: ket qua khac ban ro", decWrongIV != plain);
 }
 
+// Test 8: dao 1 bit cua ban ma roi giai ma dung khoa/IV thi dung 1 bit tuong
+// ung (cung vi tri) cua ban ro bi dao, cac bit khac giu nguyen. Ma dong XOR
+// tung bit voi keystream mot cach doc lap voi cac bit khac, nen sua 1 bit cua
+// ban ma chi lam doi dung bit do cua ban ro giai ma ra, ma khong lam loi hay bi
+// phat hien - ke tan cong co the sua ban ma theo y muon ma khong can biet khoa.
+// Vi vay mat ma dong khong tu bao ve duoc tinh toan ven, can them MAC (vd HMAC)
+// kem theo de nguoi nhan phat hien duoc du lieu da bi sua.
+static void testBitFlip() {
+    const std::string text = "Kiem tra dao 1 bit cua ban ma anh huong the nao den ban ro.";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    std::vector<uint8_t> cipher(plain.size());
+
+    RabbitCipher enc;
+    enc.setupKey(KEY);
+    enc.setupIV(IV);
+    enc.process(plain.data(), cipher.data(), plain.size());
+
+    const size_t flipByte = plain.size() / 2;
+    const int flipBit = 3;
+    std::vector<uint8_t> tampered = cipher;
+    tampered[flipByte] ^= static_cast<uint8_t>(1 << flipBit);
+
+    std::vector<uint8_t> decrypted(plain.size());
+    RabbitCipher dec;
+    dec.setupKey(KEY);
+    dec.setupIV(IV);
+    dec.process(tampered.data(), decrypted.data(), tampered.size());
+
+    int diffCount = 0;
+    bool onlyExpectedBitDiffers = true;
+    for (size_t i = 0; i < plain.size(); i++) {
+        uint8_t diff = decrypted[i] ^ plain[i];
+        if (diff != 0) diffCount++;
+        uint8_t expectedDiff = (i == flipByte) ? static_cast<uint8_t>(1 << flipBit) : 0;
+        if (diff != expectedDiff) onlyExpectedBitDiffers = false;
+    }
+    check("dao bit: chi dung 1 bit tuong ung cua ban ro bi doi", diffCount == 1 && onlyExpectedBitDiffers);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
@@ -208,6 +247,7 @@ int main() {
     testChunked();
     testZeroPlaintextIsKeystream();
     testWrongKeyOrIV();
+    testBitFlip();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
