@@ -14,6 +14,7 @@ Bài tập lớn môn ET3310: cài đặt thuật toán Rabbit bằng C++, theo 
 | 6 | Ngô Anh Quân | 20233595 |
 | 7 | Đinh Quang Vinh | 20233716 |
 | 8 | Hoàng Linh Nam Khánh | 20233462 |
+| 9 | Phạm Thành Quyền | 20233610 |
 
 ## Thư mục
 
