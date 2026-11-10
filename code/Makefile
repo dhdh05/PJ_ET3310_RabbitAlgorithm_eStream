@@ -4,8 +4,7 @@ CXXFLAGS = -std=c++14 -O3 -Wall -Wextra -I./include
 SRCS_CORE = src/rabbit.cpp src/utils.cpp src/file_io.cpp
 
 # Cac chuong trinh test trong tests/. Them ten vao day khi file .cpp da co ham main().
-TESTS = test_vectors test_g_function test_iv_setup test_encrypt_decrypt
-
+TESTS = test_vectors test_g_function test_iv_setup test_keystream_generation test_encrypt_decrypt
 
 ifeq ($(OS),Windows_NT)
     EXE = .exe
