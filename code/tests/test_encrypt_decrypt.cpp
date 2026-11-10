@@ -103,6 +103,39 @@ static void testInPlace() {
     check("tai cho: giong ma hoa sang mang khac", buf == cipherSeparate);
 }
 
+// Test 5: chia nho du lieu thanh nhieu lan goi process() lien tiep phai cho
+// cung ket qua nhu goi process() mot lan, vi trang thai duoc giu giua cac lan goi.
+static void testChunked() {
+    const size_t n = 1000;
+    std::vector<uint8_t> plain(n);
+    std::srand(777);
+    for (size_t i = 0; i < n; i++) {
+        plain[i] = static_cast<uint8_t>(std::rand() & 0xFF);
+    }
+
+    std::vector<uint8_t> cipherWhole(n);
+    RabbitCipher encWhole;
+    encWhole.setupKey(KEY);
+    encWhole.setupIV(IV);
+    encWhole.process(plain.data(), cipherWhole.data(), n);
+
+    std::vector<uint8_t> cipherChunked(n);
+    RabbitCipher encChunked;
+    encChunked.setupKey(KEY);
+    encChunked.setupIV(IV);
+
+    const size_t chunkSizes[] = {1, 7, 15, 16, 17, 100};
+    size_t offset = 0;
+    for (size_t sz : chunkSizes) {
+        encChunked.process(plain.data() + offset, cipherChunked.data() + offset, sz);
+        offset += sz;
+    }
+    // Phan con lai.
+    encChunked.process(plain.data() + offset, cipherChunked.data() + offset, n - offset);
+
+    check("chia nho: giong ma hoa mot lan", cipherChunked == cipherWhole);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
@@ -111,6 +144,7 @@ int main() {
     testLargeData();
     testEmptyData();
     testInPlace();
+    testChunked();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
