@@ -136,6 +136,31 @@ static void testChunked() {
     check("chia nho: giong ma hoa mot lan", cipherChunked == cipherWhole);
 }
 
+// Test 6: ban ro toan 0 thi ban ma chinh la keystream (vi C = P XOR S, P = 0 => C = S).
+// Test vector RFC 4503 Phu luc A.2.2 (giong trong test_vectors.cpp): khoa toan 0,
+// IV = C3 73 F5 75 C1 26 7E 59, 3 khoi keystream dau tien S[0], S[1], S[2].
+static void testZeroPlaintextIsKeystream() {
+    const uint8_t key[16] = {0};
+    const uint8_t iv[8] = {0xC3, 0x73, 0xF5, 0x75, 0xC1, 0x26, 0x7E, 0x59};
+
+    const uint8_t expected[48] = {
+        0x1F, 0xCD, 0x4E, 0xB9, 0x58, 0x00, 0x12, 0xE2, 0xE0, 0xDC, 0xCC, 0x92, 0x22, 0x01, 0x7D, 0x6D,
+        0xA7, 0x5F, 0x4E, 0x10, 0xD1, 0x21, 0x25, 0x01, 0x7B, 0x24, 0x99, 0xFF, 0xED, 0x93, 0x6F, 0x2E,
+        0xEB, 0xC1, 0x12, 0xC3, 0x93, 0xE7, 0x38, 0x39, 0x23, 0x56, 0xBD, 0xD0, 0x12, 0x02, 0x9B, 0xA7
+    };
+
+    std::vector<uint8_t> plain(48, 0x00);
+    std::vector<uint8_t> cipher(48);
+
+    RabbitCipher cipherObj;
+    cipherObj.setupKey(key);
+    cipherObj.setupIV(iv);
+    cipherObj.process(plain.data(), cipher.data(), plain.size());
+
+    bool match = std::equal(cipher.begin(), cipher.end(), expected);
+    check("ban ro toan 0: ban ma = keystream (RFC A.2.2)", match);
+}
+
 
 int main() {
     std::cout << "=== TEST MA HOA / GIAI MA ===\n";
@@ -145,6 +170,7 @@ int main() {
     testEmptyData();
     testInPlace();
     testChunked();
+    testZeroPlaintextIsKeystream();
 
     std::cout << "\nTong: " << totalTests - failedTests << "/" << totalTests << " PASS\n";
     return failedTests == 0 ? 0 : 1;
